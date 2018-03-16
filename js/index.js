@@ -1,37 +1,53 @@
 // Selectors
-var videoEl = document.querySelector('video');
+var videoElement   = document.querySelector('video');
+var playbackButton = document.querySelector('#playback-button');
 
-// Element Streams
+// Element streams
 var videoElStream = Rx.Observable.create(function(observer) {
     observer.next(document.querySelector('video'));
 });
 
-// Video Element Event Streams
-var playingStream    = Rx.Observable.fromEvent(videoEl, 'playing');
-var pauseStream      = Rx.Observable.fromEvent(videoEl, 'pause');
-var endedStream      = Rx.Observable.fromEvent(videoEl, 'ended');
-var timeUpdateStream = Rx.Observable.fromEvent(videoEl, 'timeupdate');
+var playbackButtonStream = Rx.Observable.create(function(observer) {
+    observer.next(document.querySelector('#playback-button'));
+});
+
+// Video element event streams
+var playingStream    = Rx.Observable.fromEvent(videoElement, 'playing');
+var pauseStream      = Rx.Observable.fromEvent(videoElement, 'pause');
+var endedStream      = Rx.Observable.fromEvent(videoElement, 'ended');
+var timeUpdateStream = Rx.Observable.fromEvent(videoElement, 'timeupdate');
 var changeStream     = playingStream.merge(pauseStream).merge(endedStream);
 
-// Composed streams
-var isPlayingStream  = changeStream.map(function(changeEvent) {  
-    return changeEvent.type === 'playing';
+// Control streams
+var playbackButtonClickStream = Rx.Observable.fromEvent(playbackButton, 'click');
+
+// Video element state change streams
+var isPlayingStream = changeStream.map(function(changeEvent) {
+                                            return changeEvent.type === 'playing';
+                                        });
+
+var currenTimeStream = videoElStream.combineLatest(timeUpdateStream, function(videoEl, currentTimeEvent) {
+    return videoEl.currentTime;
 });
 
-var currenTimeStream = videoElStream
-                        .combineLatest(timeUpdateStream)
-                        .map(
-                            function(videoTimeUpdateStream) {
-                                return videoTimeUpdateStream[0].currentTime;
-                            }
-                        );
-
-// Subscriptions
-isPlayingStream.subscribe(function(playerState){
-    console.log(playerState);
+// Control elements action subscriptions
+playbackButtonClickStream.combineLatest(videoElStream).subscribe(function(event) {
+    var videoEl = event[1];
+    if(videoEl.paused) {
+        videoEl.play();
+    } else {
+        videoEl.pause();
+    }
 });
 
+// Video element state change subscriptions
+isPlayingStream.combineLatest(playbackButtonStream).subscribe(function(event){
+    var playerState    = event[0];
+    var playbackButton = event[1];
 
-currenTimeStream.subscribe(function(evt) {
-    console.log(videoEl.currentTime);
+    playbackButton.innerHTML = (playerState) ? "Pause" : "Play";
+});
+
+currenTimeStream.subscribe(function(time) {
+    console.log(time);
 });
